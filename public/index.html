@@ -1,0 +1,793 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Snake Arena - Multiplayer Battle</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Exo+2:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        /* Custom Snake Cursor */
+
+        .custom-cursor {
+            position: fixed;
+            width: 20px;
+            height: 20px;
+            background: linear-gradient(135deg, #00f5ff 0%, #ff00f5 100%);
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 9999;
+            transition: all 0.1s ease;
+            box-shadow: 0 0 20px rgba(0, 245, 255, 0.6);
+        }
+
+        .custom-cursor::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 12px;
+            height: 12px;
+            background: #ffffff;
+            border-radius: 50%;
+        }
+
+        .custom-cursor::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 6px;
+            height: 6px;
+            background: #000000;
+            border-radius: 50%;
+        }
+
+        .cursor-trail {
+            position: fixed;
+            width: 12px;
+            height: 12px;
+            background: linear-gradient(135deg, #00f5ff 0%, #ff00f5 100%);
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 9998;
+            opacity: 0.7;
+            transition: all 0.3s ease;
+            box-shadow: 0 0 10px rgba(0, 245, 255, 0.4);
+        }
+
+        /* Hover effects for interactive elements */
+        button:hover ~ .custom-cursor,
+        .custom-cursor:hover,
+        a:hover ~ .custom-cursor,
+        input:hover ~ .custom-cursor,
+        .close-btn:hover ~ .custom-cursor {
+            transform: scale(1.5);
+            background: linear-gradient(135deg, #ff00f5 0%, #f5ff00 100%);
+            box-shadow: 0 0 30px rgba(255, 0, 245, 0.8);
+        }
+
+        body {
+            font-family: 'Exo 2', sans-serif;
+            background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%);
+            color: #ffffff;
+            min-height: 100vh;
+            overflow-x: hidden;
+            position: relative;
+            cursor: none;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at 20% 80%, rgba(120, 119, 198, 0.3) 0%, transparent 50%),
+                        radial-gradient(circle at 80% 20%, rgba(255, 119, 198, 0.15) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .container {
+            position: relative;
+            z-index: 1;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .game-title {
+            font-family: 'Orbitron', monospace;
+            font-size: 3.5rem;
+            font-weight: 900;
+            text-align: center;
+            margin-bottom: 30px;
+            background: linear-gradient(45deg, #00f5ff, #ff00f5, #f5ff00);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-shadow: 0 0 30px rgba(0, 245, 255, 0.5);
+            animation: glow 2s ease-in-out infinite alternate;
+        }
+
+        @keyframes glow {
+            from { filter: brightness(1) drop-shadow(0 0 20px rgba(0, 245, 255, 0.3)); }
+            to { filter: brightness(1.2) drop-shadow(0 0 40px rgba(0, 245, 255, 0.6)); }
+        }
+
+        #gameContainer {
+            display: flex;
+            gap: 30px;
+            align-items: flex-start;
+            max-width: 1400px;
+            width: 100%;
+            justify-content: center;
+            margin: 0 auto;
+        }
+
+        #gameCanvas {
+            border: 3px solid #00f5ff;
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%);
+            border-radius: 15px;
+            box-shadow: 0 0 50px rgba(0, 245, 255, 0.3),
+                        inset 0 0 50px rgba(0, 245, 255, 0.1);
+            animation: borderPulse 3s ease-in-out infinite;
+        }
+
+        @keyframes borderPulse {
+            0%, 100% { box-shadow: 0 0 50px rgba(0, 245, 255, 0.3), inset 0 0 50px rgba(0, 245, 255, 0.1); }
+            50% { box-shadow: 0 0 80px rgba(0, 245, 255, 0.5), inset 0 0 80px rgba(0, 245, 255, 0.2); }
+        }
+
+        #gameInfo {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 25px;
+            border-radius: 20px;
+            min-width: 300px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        #playerList {
+            margin-bottom: 25px;
+        }
+
+        .player-info {
+            display: flex;
+            align-items: center;
+            margin: 8px 0;
+            padding: 15px;
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+        }
+
+        .player-info:hover {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0.1) 100%);
+            border-color: rgba(0, 245, 255, 0.3);
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        .player-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            margin-right: 12px;
+            flex-shrink: 0;
+        }
+
+        .player-details {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .player-name {
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        .player-stats {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            font-size: 12px;
+        }
+
+        .length {
+            color: #4CAF50;
+            font-weight: bold;
+        }
+
+        .status {
+            color: #2196F3;
+            font-weight: bold;
+        }
+
+        .player-dead {
+            opacity: 0.6;
+        }
+
+        .player-dead .status {
+            color: #f44336;
+        }
+
+        .player-dead .player-name {
+            text-decoration: line-through;
+        }
+
+        button {
+            background: linear-gradient(135deg, #00f5ff 0%, #ff00f5 100%);
+            border: none;
+            color: white;
+            padding: 15px 25px;
+            text-align: center;
+            font-size: 16px;
+            font-weight: 600;
+            margin: 8px 0;
+            cursor: pointer;
+            border-radius: 12px;
+            width: 100%;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: left 0.5s;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 15px 30px rgba(0, 245, 255, 0.3);
+            background: linear-gradient(135deg, #ff00f5 0%, #00f5ff 100%);
+        }
+
+        button:hover::before {
+            left: 100%;
+        }
+
+        button:disabled {
+            background: linear-gradient(135deg, #666 0%, #555 100%);
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        button:disabled::before {
+            display: none;
+        }
+
+        #timerContainer {
+            text-align: center;
+            margin: 20px 0;
+            padding: 15px;
+            border: 2px solid rgba(0, 245, 255, 0.3);
+            border-radius: 15px;
+            background-color: rgba(0, 0, 0, 0.2);
+        }
+
+        .timer-label {
+            font-family: 'Exo 2', sans-serif;
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: rgba(255, 255, 255, 0.7);
+            margin-bottom: 5px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        #timer {
+            font-family: 'Orbitron', monospace;
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: linear-gradient(45deg, #00f5ff, #ff00f5);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-shadow: 0 0 20px rgba(0, 245, 255, 0.5);
+        }
+
+        #status {
+            text-align: center;
+            margin: 20px 0;
+            font-weight: 600;
+            font-size: 1.2rem;
+            padding: 15px;
+            background: linear-gradient(135deg, rgba(0, 245, 255, 0.1) 0%, rgba(255, 0, 245, 0.1) 100%);
+            border: 1px solid rgba(0, 245, 255, 0.3);
+            border-radius: 12px;
+            backdrop-filter: blur(10px);
+        }
+
+        .game-over {
+            background: #f44336;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px;
+            text-align: center;
+        }
+
+        .controls {
+            margin-top: 20px;
+            text-align: center;
+        }
+
+        .controls p {
+            margin: 5px 0;
+        }
+
+        #foodInfo {
+            margin: 15px 0;
+            font-size: 14px;
+        }
+
+        .food-item {
+            display: flex;
+            align-items: center;
+            margin: 5px 0;
+        }
+
+        .food-icon {
+            font-size: 18px;
+            margin-right: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .speed-boost {
+            background: #FFD700;
+            padding: 2px 6px;
+            border-radius: 3px;
+            color: #000;
+            font-size: 12px;
+            margin-left: 5px;
+        }
+
+        #lobbyScreen {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 60vh;
+        }
+
+        .lobby-container {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 40px;
+            border-radius: 25px;
+            text-align: center;
+            max-width: 800px;
+            width: 100%;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3);
+        }
+
+        .lobby-options {
+            display: flex;
+            gap: 30px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .option-card {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%);
+            backdrop-filter: blur(15px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 30px;
+            border-radius: 20px;
+            flex: 1;
+            min-width: 280px;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .option-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, #00f5ff, #ff00f5, #f5ff00);
+            border-radius: 20px 20px 0 0;
+        }
+
+        .option-card:hover {
+            transform: translateY(-5px);
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0.1) 100%);
+            border-color: rgba(0, 245, 255, 0.4);
+            box-shadow: 0 20px 40px rgba(0, 245, 255, 0.2);
+        }
+
+        .option-card h3 {
+            margin-top: 0;
+            color: #4CAF50;
+            font-size: 1.4rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .option-card p {
+            color: #ccc;
+            margin-bottom: 20px;
+        }
+
+        .join-input-group {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        #roomCodeInput {
+            padding: 10px;
+            border: none;
+            border-radius: 5px;
+            background: #555;
+            color: white;
+            font-size: 16px;
+            text-align: center;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            min-width: 140px;
+        }
+
+        #roomCodeInput::placeholder {
+            color: #aaa;
+        }
+
+        #roomInfo {
+            text-align: center;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #444;
+            border-radius: 10px;
+        }
+
+        .copy-button {
+            background: #2196F3;
+            border: none;
+            color: white;
+            padding: 5px 10px;
+            margin-left: 10px;
+            cursor: pointer;
+            border-radius: 3px;
+            font-size: 12px;
+        }
+
+        .copy-button:hover {
+            background: #1976D2;
+        }
+
+        .how-to-play-btn {
+            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+            margin: 20px auto;
+            min-width: 250px;
+            max-width: 300px;
+            font-size: 14px;
+            padding: 12px 20px;
+            white-space: nowrap;
+        }
+
+        .modal {
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(5px);
+        }
+
+        .modal-content {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            margin: 5% auto;
+            padding: 0;
+            width: 90%;
+            max-width: 600px;
+            border-radius: 20px;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5);
+            max-height: 80vh;
+            overflow-y: auto;
+            color: white;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 25px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .modal-header h2 {
+            margin: 0;
+            font-family: 'Orbitron', monospace;
+            color: #00f5ff;
+        }
+
+        .close-btn {
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            color: #aaa;
+            transition: color 0.3s;
+        }
+
+        .close-btn:hover {
+            color: #00f5ff;
+        }
+
+        .modal-body {
+            padding: 25px;
+        }
+
+        .mechanics-section {
+            margin-bottom: 25px;
+        }
+
+        .mechanics-section h3 {
+            color: #ff00f5;
+            margin-bottom: 10px;
+            font-family: 'Exo 2', sans-serif;
+        }
+
+        .mechanics-section p, .mechanics-section li {
+            line-height: 1.6;
+            color: rgba(255, 255, 255, 0.9);
+        }
+
+        .mechanics-section ul {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+
+        .food-explanation {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .food-type {
+            flex: 1;
+            min-width: 250px;
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .food-icon-large {
+            font-size: 24px;
+            flex-shrink: 0;
+        }
+
+        @media (max-width: 768px) {
+            .lobby-options {
+                flex-direction: column;
+            }
+
+            .join-input-group {
+                flex-direction: column;
+            }
+
+            #roomCodeInput {
+                min-width: 100%;
+            }
+
+            .food-explanation {
+                flex-direction: column;
+            }
+
+            .food-type {
+                min-width: 100%;
+            }
+
+            .modal-content {
+                width: 95%;
+                margin: 2% auto;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Custom Cursor -->
+    <div class="custom-cursor"></div>
+
+    <div class="container">
+        <h1 class="game-title">🐍 SNAKE ARENA</h1>
+
+        <div id="status">Connecting...</div>
+
+    <div id="lobbyScreen">
+        <div class="lobby-container">
+            <h2>Select a Game Mode</h2>
+
+            <button id="howToPlayBtn" onclick="showGameMechanics()" class="how-to-play-btn">🎮 Learn How to Play</button>
+
+            <div class="lobby-options">
+                <div class="option-card">
+                    <h3>Solo Play</h3>
+                    <p>Go solo and try to survive for 10 minutes!</p>
+                    <button id="soloPlayBtn" onclick="startSoloPlay()" disabled>Start Solo Game</button>
+                </div>
+
+                <div class="option-card">
+                    <h3>Create Room</h3>
+                    <p>Create a room and invite your friends to join!</p>
+                    <button id="createRoomBtn" onclick="createRoom()" disabled>Create Room</button>
+                </div>
+
+                <div class="option-card">
+                    <h3>Join Room</h3>
+                    <p>Have a code? Join your friend's game!</p>
+                    <div class="join-input-group">
+                        <input type="text" id="roomCodeInput" placeholder="Enter room code" maxlength="6">
+                        <button id="joinRoomBtn" onclick="joinRoom()" disabled>Join Room</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="gameContainer" style="display: none;">
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+
+        <div id="gameInfo">
+            <div id="roomInfo">
+                <div id="roomCode" style="font-size: 24px; font-weight: bold; margin-bottom: 10px;"></div>
+                <div id="hostStatus" style="margin-bottom: 15px; color: #ffd700;"></div>
+            </div>
+
+            <div id="timerContainer">
+                <div class="timer-label">Game Time:</div>
+                <div id="timer">10:00</div>
+            </div>
+
+            <div id="playerList">
+                <h3>Players (0/4)</h3>
+            </div>
+
+            <div id="foodInfo">
+                <h4>Food Types:</h4>
+                <div class="food-item">
+                    <div class="food-icon">🍎</div>
+                    <span>Regular (+1 length)</span>
+                </div>
+                <div class="food-item">
+                    <div class="food-icon">⚡</div>
+                    <span>Special (+2, speed boost 5s)</span>
+                </div>
+            </div>
+
+            <button id="startBtn" onclick="startGame()" disabled>Start Game</button>
+            <button id="leaveRoomBtn" onclick="leaveRoom()">Leave Room</button>
+
+            <div class="controls">
+                <h4>Controls:</h4>
+                <p>Arrow Keys or WASD</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Game Mechanics Modal -->
+    <div id="mechanicsModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>🐍 Game Mechanics</h2>
+                <span class="close-btn" onclick="hideGameMechanics()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="mechanics-section">
+                    <h3>🎯 Objective</h3>
+                    <p>Control your snake, eat food to grow, and stay alive as long as possible!<br>
+                    In multiplayer mode, your goal is to be the last snake standing — or have the longest snake when the timer runs out.</p>
+                </div>
+
+                <div class="mechanics-section">
+                    <h3>🎮 Controls</h3>
+                    <p><strong>Movement:</strong> Arrow Keys or WASD<br>
+                    <strong>Match Duration:</strong> 10 minutes per game</p>
+                </div>
+
+                <div class="mechanics-section">
+                    <h3>🍎 Food System</h3>
+                    <div class="food-explanation">
+                        <div class="food-type">
+                            <span class="food-icon-large">🍏</span>
+                            <div>
+                                <strong>Regular Food</strong><br>
+                                • 3–5 pieces spawn every 10 seconds<br>
+                                • +1 to snake length<br>
+                                • Disappears after 10 seconds<br>
+                                • Blinks before expiring
+                            </div>
+                        </div>
+                        <div class="food-type">
+                            <span class="food-icon-large">⚡</span>
+                            <div>
+                                <strong>Special Food</strong><br>
+                                • 1 item spawns every 30 seconds<br>
+                                • +2 to snake length<br>
+                                • Grants a 5-second speed boost<br>
+                                • Disappears after 10 seconds
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mechanics-section">
+                    <h3>💀 Lose Conditions</h3>
+                    <ul>
+                        <li>Hit arena walls</li>
+                        <li>Collide with your own snake</li>
+                        <li>Collide with another player's snake</li>
+                        <li>Get completely trapped by other snakes</li>
+                    </ul>
+                </div>
+
+                <div class="mechanics-section">
+                    <h3>🏆 Win Conditions</h3>
+                    <p><strong>Solo Mode:</strong> Survive the full 10 minutes<br>
+                    <strong>Multiplayer:</strong> Last snake alive OR longest snake when time expires</p>
+                </div>
+
+                <div class="mechanics-section">
+                    <h3>🚀 Speed Boost</h3>
+                    <p>Eating special food (⚡) grants a 5-second speed boost with visual effects. The entire game speeds up when any player has an active boost!</p>
+                </div>
+
+                <div class="mechanics-section">
+                    <h3>🌐 Multiplayer</h3>
+                    <p><strong>Create Room:</strong> Generate a 6-character code to share<br>
+                    <strong>Join Room:</strong> Enter a friend's room code<br>
+                    <strong>Host Controls:</strong> Only room creator can start the game</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+        <script src="/socket.io/socket.io.js"></script>
+        <script src="game.js"></script>
+    </div>
+</body>
+</html>
