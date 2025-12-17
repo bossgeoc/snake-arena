@@ -58,6 +58,9 @@ class SnakeClient {
             document.getElementById('soloPlayBtn').disabled = false;
             document.getElementById('createRoomBtn').disabled = false;
             document.getElementById('joinRoomBtn').disabled = false;
+
+            // Send player name if entered
+            this.sendPlayerName();
         });
 
         this.socket.on('roomCreated', (data) => {
@@ -124,6 +127,13 @@ class SnakeClient {
         this.socket.on('error', (data) => {
             alert(data.message);
         });
+    }
+
+    sendPlayerName() {
+        const nameInput = document.getElementById('playerNameInput');
+        if (nameInput && nameInput.value.trim()) {
+            this.socket.emit('setPlayerName', { name: nameInput.value.trim() });
+        }
     }
 
     showLobbyScreen() {
@@ -198,11 +208,14 @@ class SnakeClient {
                 }
             }
 
+            const displayName = player.name || `Player ${player.id}`;
+            const nameWithYou = player.id === this.playerId ? `${displayName} (You)` : displayName;
+
             return `
                 <div class="player-info ${!player.alive ? 'player-dead' : ''}">
                     <div class="player-color" style="background-color: ${player.color}"></div>
                     <div class="player-details">
-                        <div class="player-name">Player ${player.id === this.playerId ? '(You)' : ''}</div>
+                        <div class="player-name">${nameWithYou}</div>
                         <div class="player-stats">
                             <span class="length">Length: ${player.score}</span>
                             <span class="status">${status}</span>
@@ -507,7 +520,8 @@ class SnakeClient {
 
         let message = 'Game Over!\n\n';
         if (data.winner) {
-            message += `🏆 Champion: ${data.winner === this.playerId ? 'You!' : 'Player ' + data.winner}\n\n`;
+            const winnerName = data.winner === this.playerId ? 'You!' : (data.winnerName || `Player ${data.winner}`);
+            message += `🏆 Champion: ${winnerName}\n\n`;
         } else {
             message += 'No winner - all players eliminated!\n\n';
         }
@@ -515,8 +529,8 @@ class SnakeClient {
         message += 'Final Results:\n';
         data.finalScores.forEach(score => {
             const status = score.alive ? '🏆 Champion' : '💀 Defeated';
-            const playerLabel = score.id === this.playerId ? 'You' : 'Player';
-            message += `${playerLabel}: Length ${score.score} (${status})\n`;
+            const playerName = score.id === this.playerId ? 'You' : (score.name || `Player ${score.id}`);
+            message += `${playerName}: Length ${score.score} (${status})\n`;
         });
 
         alert(message);
@@ -532,6 +546,7 @@ class SnakeClient {
 
 function startSoloPlay() {
     if (game && game.connected) {
+        game.sendPlayerName();
         game.isSoloMode = true;
         game.socket.emit('createRoom');
     }
@@ -539,6 +554,7 @@ function startSoloPlay() {
 
 function createRoom() {
     if (game && game.connected) {
+        game.sendPlayerName();
         game.socket.emit('createRoom');
     }
 }
@@ -546,6 +562,7 @@ function createRoom() {
 function joinRoom() {
     const roomCode = document.getElementById('roomCodeInput').value.trim();
     if (game && game.connected && roomCode) {
+        game.sendPlayerName();
         game.socket.emit('joinRoom', { roomCode: roomCode });
     } else {
         alert('Please enter a room code');
@@ -582,7 +599,7 @@ function copyRoomCode() {
     }
 }
 
-// Auto-uppercase room code input
+// Auto-uppercase room code input and handle name changes
 document.addEventListener('DOMContentLoaded', () => {
     const roomCodeInput = document.getElementById('roomCodeInput');
     if (roomCodeInput) {
@@ -593,6 +610,22 @@ document.addEventListener('DOMContentLoaded', () => {
         roomCodeInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
                 joinRoom();
+            }
+        });
+    }
+
+    // Handle player name changes
+    const playerNameInput = document.getElementById('playerNameInput');
+    if (playerNameInput) {
+        playerNameInput.addEventListener('blur', () => {
+            if (game && game.connected) {
+                game.sendPlayerName();
+            }
+        });
+
+        playerNameInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                e.target.blur(); // Trigger blur event to save name
             }
         });
     }
