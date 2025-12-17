@@ -99,7 +99,13 @@ class SnakeClient {
         });
 
         this.socket.on('playersUpdate', (data) => {
-            this.updatePlayersList(data);
+            // During lobby (before game starts), show waiting players
+            if (!this.gameState) {
+                this.updateWaitingPlayersList(data);
+            } else {
+                // During game, use normal player list
+                this.updatePlayersList(data);
+            }
         });
 
         this.socket.on('gameStarted', () => {
@@ -142,6 +148,7 @@ class SnakeClient {
         this.currentRoom = null;
         this.isHost = false;
         this.isSoloMode = false;
+        this.gameState = null; // Reset game state to show waiting players list
     }
 
     showGameScreen() {
@@ -189,6 +196,34 @@ class SnakeClient {
             const playersHtml = this.generatePlayersHtml(players);
             playerList.innerHTML = headerText + playersHtml;
         }
+    }
+
+    updateWaitingPlayersList(data) {
+        if (!data || !data.players) return;
+
+        const playerList = document.getElementById('playerList');
+        const header = `<h3>Players (${data.playerCount}/${data.maxPlayers})</h3>`;
+
+        // Generate waiting players HTML (before game starts)
+        const waitingPlayersHtml = data.players.map(player => {
+            const displayName = player.name || `Player ${player.id}`;
+            const nameWithYou = player.id === this.playerId ? `${displayName} (You)` : displayName;
+            const hostBadge = player.isHost ? ' 👑' : '';
+
+            return `
+                <div class="player-info waiting-player">
+                    <div class="player-color" style="background-color: ${player.color}"></div>
+                    <div class="player-details">
+                        <div class="player-name">${nameWithYou}${hostBadge}</div>
+                        <div class="player-stats">
+                            <span class="status">Waiting...</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        playerList.innerHTML = header + waitingPlayersHtml;
     }
 
     generatePlayersHtml(players) {
