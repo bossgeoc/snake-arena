@@ -65,6 +65,7 @@ class Game {
         const player = {
             id: socket.id,
             socket: socket,
+            name: socket.playerName || `Player ${this.players.size + 1}`,
             snake: [startPositions[this.players.size]],
             direction: { x: 1, y: 0 },
             color: availableColor,
@@ -153,8 +154,10 @@ class Game {
 
         this.broadcastToRoom('gameEnd', {
             winner: winner ? winner.id : null,
+            winnerName: winner ? winner.name : null,
             finalScores: Array.from(this.players.values()).map(p => ({
                 id: p.id,
+                name: p.name,
                 score: p.snake.length,
                 alive: p.alive
             }))
@@ -311,6 +314,7 @@ class Game {
         this.broadcastToRoom('gameState', {
             players: Array.from(this.players.values()).map(p => ({
                 id: p.id,
+                name: p.name,
                 snake: p.snake,
                 color: p.color,
                 alive: p.alive,
@@ -359,6 +363,28 @@ io.on('connection', (socket) => {
     let currentRoom = null;
 
     socket.emit('connected', { playerId: socket.id });
+
+    socket.on('setPlayerName', (data) => {
+        const name = data.name ? data.name.trim() : '';
+        if (name.length > 0 && name.length <= 20) {
+            socket.playerName = name;
+
+            // If player is already in a room, update their name in the game
+            if (currentRoom) {
+                const game = gameRooms.get(currentRoom);
+                if (game && game.players.has(socket.id)) {
+                    const player = game.players.get(socket.id);
+                    player.name = name;
+
+                    game.broadcastToRoom('playersUpdate', {
+                        playerCount: game.players.size,
+                        maxPlayers: MAX_PLAYERS,
+                        roomCode: currentRoom
+                    });
+                }
+            }
+        }
+    });
 
     socket.on('createRoom', () => {
         let roomCode;
