@@ -71,6 +71,7 @@ class SnakeClient {
             if (data.success) {
                 this.currentRoom = data.roomCode;
                 this.isHost = data.isHost;
+                this.gameState = null; // Ensure we're in lobby mode
                 this.showGameScreen();
                 this.updateRoomInfo();
 
@@ -99,10 +100,15 @@ class SnakeClient {
         });
 
         this.socket.on('playersUpdate', (data) => {
+            console.log('Players update received:', data);
+            console.log('Game state:', this.gameState);
+
             // During lobby (before game starts), show waiting players
             if (!this.gameState) {
+                console.log('Updating waiting players list');
                 this.updateWaitingPlayersList(data);
             } else {
+                console.log('Updating game players list');
                 // During game, use normal player list
                 this.updatePlayersList(data);
             }
@@ -199,31 +205,36 @@ class SnakeClient {
     }
 
     updateWaitingPlayersList(data) {
-        if (!data || !data.players) return;
+        if (!data) return;
 
         const playerList = document.getElementById('playerList');
         const header = `<h3>Players (${data.playerCount}/${data.maxPlayers})</h3>`;
 
-        // Generate waiting players HTML (before game starts)
-        const waitingPlayersHtml = data.players.map(player => {
-            const displayName = player.name || `Player ${player.id}`;
-            const nameWithYou = player.id === this.playerId ? `${displayName} (You)` : displayName;
-            const hostBadge = player.isHost ? ' 👑' : '';
+        // If we have player details, show them
+        if (data.players && data.players.length > 0) {
+            const waitingPlayersHtml = data.players.map(player => {
+                const displayName = player.name || `Player ${player.id}`;
+                const nameWithYou = player.id === this.playerId ? `${displayName} (You)` : displayName;
+                const hostBadge = player.isHost ? ' 👑' : '';
 
-            return `
-                <div class="player-info waiting-player">
-                    <div class="player-color" style="background-color: ${player.color}"></div>
-                    <div class="player-details">
-                        <div class="player-name">${nameWithYou}${hostBadge}</div>
-                        <div class="player-stats">
-                            <span class="status">Waiting...</span>
+                return `
+                    <div class="player-info waiting-player">
+                        <div class="player-color" style="background-color: ${player.color}"></div>
+                        <div class="player-details">
+                            <div class="player-name">${nameWithYou}${hostBadge}</div>
+                            <div class="player-stats">
+                                <span class="status">Waiting...</span>
+                            </div>
                         </div>
                     </div>
-                </div>
-            `;
-        }).join('');
+                `;
+            }).join('');
 
-        playerList.innerHTML = header + waitingPlayersHtml;
+            playerList.innerHTML = header + waitingPlayersHtml;
+        } else {
+            // Fallback: just show the header
+            playerList.innerHTML = header;
+        }
     }
 
     generatePlayersHtml(players) {
@@ -572,7 +583,8 @@ class SnakeClient {
 
         setTimeout(() => {
             document.getElementById('status').textContent = 'Game ended. Waiting in room...';
-            if (game.isHost) {
+            this.gameState = null; // Reset to lobby mode to show waiting players
+            if (this.isHost) {
                 document.getElementById('startBtn').disabled = false;
             }
         }, 1000);
