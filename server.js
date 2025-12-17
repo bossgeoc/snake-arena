@@ -412,7 +412,13 @@ io.on('connection', (socket) => {
             game.broadcastToRoom('playersUpdate', {
                 playerCount: game.players.size,
                 maxPlayers: MAX_PLAYERS,
-                roomCode: roomCode
+                roomCode: roomCode,
+                players: Array.from(game.players.values()).map(p => ({
+                    id: p.id,
+                    name: p.name,
+                    color: p.color,
+                    isHost: p.id === game.hostId
+                }))
             });
 
             console.log(`Room created: ${roomCode} by ${socket.id}`);
@@ -452,7 +458,13 @@ io.on('connection', (socket) => {
             game.broadcastToRoom('playersUpdate', {
                 playerCount: game.players.size,
                 maxPlayers: MAX_PLAYERS,
-                roomCode: roomCode
+                roomCode: roomCode,
+                players: Array.from(game.players.values()).map(p => ({
+                    id: p.id,
+                    name: p.name,
+                    color: p.color,
+                    isHost: p.id === game.hostId
+                }))
             });
 
             console.log(`Player ${socket.id} joined room: ${roomCode}`);
@@ -503,7 +515,13 @@ io.on('connection', (socket) => {
                     game.broadcastToRoom('playersUpdate', {
                         playerCount: game.players.size,
                         maxPlayers: MAX_PLAYERS,
-                        roomCode: currentRoom
+                        roomCode: currentRoom,
+                        players: Array.from(game.players.values()).map(p => ({
+                            id: p.id,
+                            name: p.name,
+                            color: p.color,
+                            isHost: p.id === game.hostId
+                        }))
                     });
                 }
             }
